@@ -13,8 +13,19 @@ jobs:
 
       - name: Unpack project archive
         run: |
-          if [ -f kalshi_screen_trainer_android.zip ]; then
-            unzip -o kalshi_screen_trainer_android.zip
+          ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
+          if [ -n "$ZIP_FILE" ]; then
+            echo "Extracting $ZIP_FILE..."
+            unzip -o "$ZIP_FILE"
+          else
+            echo "No zip archive found in repository root."
+          fi
+
+      - name: Patch manifest icons
+        run: |
+          if [ -f app/src/main/AndroidManifest.xml ]; then
+            sed -i 's|@mipmap/ic_launcher|@android:drawable/sym_def_app_icon|g' app/src/main/AndroidManifest.xml
+            sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"||g' app/src/main/AndroidManifest.xml
           fi
 
       - name: Set up JDK 17
@@ -25,6 +36,10 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licenses
+        run: |
+          yes | sdkmanager --licenses || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
