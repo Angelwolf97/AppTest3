@@ -17,8 +17,6 @@ jobs:
           if [ -n "$ZIP_FILE" ]; then
             echo "Extracting $ZIP_FILE..."
             unzip -o "$ZIP_FILE"
-          else
-            echo "No zip archive found in repository root."
           fi
 
       - name: Patch manifest icons
@@ -34,12 +32,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK licenses
+      - name: Auto-accept Android SDK licenses
         run: |
-          yes | sdkmanager --licenses || true
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
