@@ -19,9 +19,17 @@ jobs:
             unzip -o "$ZIP_FILE"
           fi
 
-      - name: Patch manifest icons
+      - name: Configure AndroidX and patch Manifest
         run: |
+          cat <<EOF > gradle.properties
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.enableJetifier=true
+          kotlin.code.style=official
+          android.nonTransitiveRClass=true
+          EOF
           if [ -f app/src/main/AndroidManifest.xml ]; then
+            sed -i 's|package="com.quant.kalshitrainer"||g' app/src/main/AndroidManifest.xml
             sed -i 's|@mipmap/ic_launcher|@android:drawable/sym_def_app_icon|g' app/src/main/AndroidManifest.xml
             sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"||g' app/src/main/AndroidManifest.xml
           fi
@@ -42,7 +50,7 @@ jobs:
           gradle-version: '8.10.2'
 
       - name: Build APK with Gradle
-        run: gradle assembleDebug
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
