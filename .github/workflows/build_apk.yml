@@ -65,8 +65,8 @@ jobs:
           echo '    implementation("com.squareup.okhttp3:okhttp:4.12.0")' >> app/build.gradle.kts
           echo '}' >> app/build.gradle.kts
           sed -i 's|package="com.quant.kalshitrainer"||g' app/src/main/AndroidManifest.xml
+          sed -i '/roundIcon/d' app/src/main/AndroidManifest.xml
           sed -i 's|@mipmap/ic_launcher|@android:drawable/sym_def_app_icon|g' app/src/main/AndroidManifest.xml
-          sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"||g' app/src/main/AndroidManifest.xml
           sed -i 's|?attr/selectableItemBackground|@android:color/transparent|g' app/src/main/res/layout/layout_floating_hud.xml
           sed -i 's|gemini-1.5-flash|gemini-2.5-flash|g' app/src/main/java/com/quant/kalshitrainer/KalshiVisionTrainer.kt
           if ! grep -q "Dispatchers.Main" app/src/main/java/com/quant/kalshitrainer/KalshiVisionTrainer.kt; then
@@ -94,3 +94,4 @@ jobs:
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             build_output.txt
+            
