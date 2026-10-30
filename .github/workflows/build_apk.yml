@@ -1,4 +1,4 @@
-name: Build Kalshi Trainer APK
+name: Direct Android APK Builder
 
 on:
   push:
@@ -6,21 +6,64 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Unpack and repair project files
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Unpack and configure SDK 34 project
         run: |
           ZIP_FILE=$(find . -maxdepth 2 -name "*.zip" | head -n 1)
           if [ -n "$ZIP_FILE" ]; then
             unzip -o "$ZIP_FILE"
           fi
-          echo "org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8" > gradle.properties
+          mkdir -p "$ANDROID_HOME/licenses"
+          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > "$ANDROID_HOME/licenses/android-sdk-license"
+          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> "$ANDROID_HOME/licenses/android-sdk-license"
+          echo "24333f8a63b6825ea9c5514f83c2829b004d1fee" >> "$ANDROID_HOME/licenses/android-sdk-license"
+          echo "84831b9409646a918e30573bab4c9c91346d8abd" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
+          echo "org.gradle.jvmargs=-Xmx3072m -Dfile.encoding=UTF-8" > gradle.properties
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
-          echo "kotlin.code.style=official" >> gradle.properties
+          echo 'plugins {' > build.gradle.kts
+          echo '    id("com.android.application") version "8.5.2" apply false' >> build.gradle.kts
+          echo '    id("org.jetbrains.kotlin.android") version "1.9.24" apply false' >> build.gradle.kts
+          echo '}' >> build.gradle.kts
+          echo 'plugins {' > app/build.gradle.kts
+          echo '    id("com.android.application")' >> app/build.gradle.kts
+          echo '    id("org.jetbrains.kotlin.android")' >> app/build.gradle.kts
+          echo '}' >> app/build.gradle.kts
+          echo 'android {' >> app/build.gradle.kts
+          echo '    namespace = "com.quant.kalshitrainer"' >> app/build.gradle.kts
+          echo '    compileSdk = 34' >> app/build.gradle.kts
+          echo '    defaultConfig {' >> app/build.gradle.kts
+          echo '        applicationId = "com.quant.kalshitrainer"' >> app/build.gradle.kts
+          echo '        minSdk = 28' >> app/build.gradle.kts
+          echo '        targetSdk = 34' >> app/build.gradle.kts
+          echo '        versionCode = 1' >> app/build.gradle.kts
+          echo '        versionName = "1.0"' >> app/build.gradle.kts
+          echo '    }' >> app/build.gradle.kts
+          echo '    compileOptions {' >> app/build.gradle.kts
+          echo '        sourceCompatibility = JavaVersion.VERSION_17' >> app/build.gradle.kts
+          echo '        targetCompatibility = JavaVersion.VERSION_17' >> app/build.gradle.kts
+          echo '    }' >> app/build.gradle.kts
+          echo '    kotlinOptions {' >> app/build.gradle.kts
+          echo '        jvmTarget = "17"' >> app/build.gradle.kts
+          echo '    }' >> app/build.gradle.kts
+          echo '}' >> app/build.gradle.kts
+          echo 'dependencies {' >> app/build.gradle.kts
+          echo '    implementation("androidx.core:core-ktx:1.13.1")' >> app/build.gradle.kts
+          echo '    implementation("androidx.appcompat:appcompat:1.6.1")' >> app/build.gradle.kts
+          echo '    implementation("com.google.android.material:material:1.11.0")' >> app/build.gradle.kts
+          echo '    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")' >> app/build.gradle.kts
+          echo '    implementation("com.squareup.okhttp3:okhttp:4.12.0")' >> app/build.gradle.kts
+          echo '}' >> app/build.gradle.kts
           sed -i 's|package="com.quant.kalshitrainer"||g' app/src/main/AndroidManifest.xml
           sed -i 's|@mipmap/ic_launcher|@android:drawable/sym_def_app_icon|g' app/src/main/AndroidManifest.xml
           sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"||g' app/src/main/AndroidManifest.xml
@@ -36,32 +79,18 @@ jobs:
             sed -i 's|getMediaProjection(resultCode, dataIntent)|getMediaProjection(resultCode, dataIntent); mediaProjection?.registerCallback(object : MediaProjection.Callback() {}, android.os.Handler(android.os.Looper.getMainLooper()))|g' app/src/main/java/com/quant/kalshitrainer/ScreenCaptureService.kt
           fi
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Auto-accept Android SDK licenses
+      - name: Download standalone Gradle 8.7 and build APK
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          curl -sL https://services.gradle.org/distributions/gradle-8.7-bin.zip -o /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp
+          /tmp/gradle-8.7/bin/gradle assembleDebug --no-daemon --stacktrace > build_output.txt 2>&1 || (tail -n 80 build_output.txt && exit 1)
+          tail -n 30 build_output.txt
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.10.2'
-
-      - name: Build APK with Gradle
-        run: |
-          set -o pipefail
-          echo "### Gradle Build Output" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          gradle assembleDebug -Pandroid.useAndroidX=true -Pandroid.enableJetifier=true --stacktrace 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      - name: Upload APK
+      - name: Upload APK and Build Log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kalshi-screen-trainer-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          
+          name: kalshi-screen-trainer-output
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            build_output.txt
