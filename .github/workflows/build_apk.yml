@@ -25,7 +25,6 @@ jobs:
           sed -i 's|@mipmap/ic_launcher|@android:drawable/sym_def_app_icon|g' app/src/main/AndroidManifest.xml
           sed -i 's|android:roundIcon="@mipmap/ic_launcher_round"||g' app/src/main/AndroidManifest.xml
           sed -i 's|?attr/selectableItemBackground|@android:color/transparent|g' app/src/main/res/layout/layout_floating_hud.xml
-          sed -i 's|LayoutInflater.from(this)|LayoutInflater.from(android.view.ContextThemeWrapper(this, R.style.Theme_KalshiTrainer))|g' app/src/main/java/com/quant/kalshitrainer/FloatingOverlayService.kt
           sed -i 's|gemini-1.5-flash|gemini-2.5-flash|g' app/src/main/java/com/quant/kalshitrainer/KalshiVisionTrainer.kt
           if ! grep -q "Dispatchers.Main" app/src/main/java/com/quant/kalshitrainer/KalshiVisionTrainer.kt; then
             sed -i 's|callback(result)|withContext(Dispatchers.Main) { callback(result) }|g' app/src/main/java/com/quant/kalshitrainer/KalshiVisionTrainer.kt
@@ -34,7 +33,7 @@ jobs:
           if ! grep -q "registerCallback" app/src/main/java/com/quant/kalshitrainer/ScreenCaptureService.kt; then
             sed -i 's|startForeground(101, createNotification())||g' app/src/main/java/com/quant/kalshitrainer/ScreenCaptureService.kt
             sed -i 's|val mpm =|if (Build.VERSION.SDK_INT >= 29) startForeground(101, createNotification(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION) else startForeground(101, createNotification()); val mpm =|g' app/src/main/java/com/quant/kalshitrainer/ScreenCaptureService.kt
-            sed -i 's|setupVirtualDisplay()|mediaProjection?.registerCallback(object : MediaProjection.Callback() {}, android.os.Handler(android.os.Looper.getMainLooper())); setupVirtualDisplay()|g' app/src/main/java/com/quant/kalshitrainer/ScreenCaptureService.kt
+            sed -i 's|getMediaProjection(resultCode, dataIntent)|getMediaProjection(resultCode, dataIntent); mediaProjection?.registerCallback(object : MediaProjection.Callback() {}, android.os.Handler(android.os.Looper.getMainLooper()))|g' app/src/main/java/com/quant/kalshitrainer/ScreenCaptureService.kt
           fi
 
       - name: Set up JDK 17
@@ -53,7 +52,12 @@ jobs:
           gradle-version: '8.10.2'
 
       - name: Build APK with Gradle
-        run: gradle assembleDebug -Pandroid.useAndroidX=true -Pandroid.enableJetifier=true --stacktrace
+        run: |
+          set -o pipefail
+          echo "### Gradle Build Output" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          gradle assembleDebug -Pandroid.useAndroidX=true -Pandroid.enableJetifier=true --stacktrace 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
